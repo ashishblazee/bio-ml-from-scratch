@@ -1,19 +1,12 @@
-# Bio-ML From Scratch: Protein Language Models in PyTorch
+# bio-ml-from-scratch
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status: Active Development](https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg)]()
+A modular, first-principles implementation of protein language models and transformer architectures in PyTorch.
 
-> Building modern Protein Language Models (ESM-2, ProtBERT, AlphaFold-style architectures) from mathematical, chemical, and biological first principles using pure PyTorch.
+Instead of relying on high-level pre-trained wrappers, this repository builds the core computational machinery of modern protein models (such as ESM-2 and AlphaFold) from scratch: tokenization, learnable structural embeddings, scaled dot-product attention, multi-head interaction maps, and pre-LayerNorm transformer blocks.
 
 ---
 
-## 🧬 Project Overview
-
-State-of-the-art biological foundation models like **ESM-2** (Evolutionary Scale Modeling) and **AlphaFold** have revolutionized structural biology and de novo protein design. However, using high-level pre-trained wrappers obscures how transformers actually process the language of life.
-
-**`bio-ml-from-scratch`** is a ground-up implementation of protein deep learning architectures built residue-by-residue, matrix-by-matrix, without relying on black-box model libraries.
+## Architecture Flow
 
 ```
 Polypeptide Sequence ("ACDEF...")
@@ -33,9 +26,9 @@ Polypeptide Sequence ("ACDEF...")
 
 ---
 
-## 🗺️ Roadmap & Milestones
+## Roadmap & Milestones
 
-### ✅ Milestone 1: Amino Acid Tokenization & Learnable Embeddings
+### Milestone 1: Amino Acid Tokenization & Learnable Embeddings
 *File: `01_tokenizer_and_embedding.py`*
 
 - **Vocabulary**: 20 canonical amino acids + 5 special tokens (`<PAD>`, `<UNK>`, `<BOS>`, `<EOS>`, `<MASK>`).
@@ -43,40 +36,40 @@ Polypeptide Sequence ("ACDEF...")
 - **Dual Embedding Layer**:
   - `token_embedding`: Maps discrete amino acid IDs into dense continuous vector space ($\mathbb{R}^{d_{\text{model}}}$).
   - `position_embedding`: Learnable positional embeddings along the linear polypeptide chain (N-terminus $\to$ C-terminus).
-- **Biochemical Cosine Similarity**: Evaluates untrained vector distance between biochemically similar residues (e.g. Leu vs. Ile) vs. discordant residues (e.g. Leu vs. Lys).
+- **Biochemical Cosine Similarity**: Evaluates vector representations between biochemically similar residues (e.g. Leu vs. Ile) versus discordant residues (e.g. Leu vs. Lys).
 
 ---
 
-### ✅ Milestone 2: Scaled Dot-Product & Multi-Head Self-Attention
+### Milestone 2: Scaled Dot-Product & Multi-Head Self-Attention
 *File: `02_self_attention.py`*
 
-- **Biological Intuition**: Proteins are non-linear 3D objects; sequence-distant residues interact through space (disulfide bonds, salt bridges, active site catalytic triads).
+- **Biological Intuition**: Sequence-distant residues interact in 3D space through disulfide bonds, salt bridges, and catalytic sites. Self-attention captures these long-range dependencies.
 - **Scaled Dot-Product Attention**:
   $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
-  - Includes attention masking to ensure real residues pay 0% attention budget to padding tokens.
-  - Softmax normalized across `dim=-1` so every residue allocates exactly 100% attention budget across the sequence.
+  - Attention masking ensures real residues pay 0% attention to padding tokens.
+  - Softmax normalization over `dim=-1` enforces an exact 100% attention budget per residue.
 - **Multi-Head Self-Attention (MHSA)**:
-  - Divides $d_{\text{model}} = 64$ across 4 parallel heads ($d_{\text{head}} = 16$).
-  - Reshapes tensors to `[Batch, Heads, Seq_Len, d_head]` so PyTorch treats each head as an independent parallel contact lens.
-  - Output attention tensor shape: `[Batch, 4, Seq_Len, Seq_Len]` — producing 4 simultaneous pairwise residue interaction contact maps.
+  - Splits $d_{\text{model}} = 64$ across 4 parallel heads ($d_{\text{head}} = 16$).
+  - Reshapes tensors to `[Batch, Heads, Seq_Len, d_head]` to compute attention heads in parallel.
+  - Output attention shape: `[Batch, 4, Seq_Len, Seq_Len]`, producing 4 simultaneous residue-residue interaction maps.
 
 ---
 
-### ✅ Milestone 3: ESM-2 Style Pre-LN Transformer Block
+### Milestone 3: ESM-2 Style Pre-LN Transformer Block
 *File: `03_transformer_block.py`*
 
-- **Two Core Pillars**:
-  1. **Inter-residue Communication**: Multi-Head Self-Attention mixes context across all positions in the protein.
-  2. **Intra-residue Chemical Computation**: Position-wise Feed-Forward Network (FFN) expands each residue $4\times$ ($64 \to 256 \to 64$) with smooth **GELU** activations to compute non-linear chemical features.
+- **Two Core Operations**:
+  1. **Inter-residue Communication**: Multi-Head Self-Attention mixes context across positions in the protein.
+  2. **Intra-residue Chemical Computation**: Position-wise Feed-Forward Network (FFN) with $4\times$ hidden expansion ($64 \to 256 \to 64$) and smooth GELU activations.
 - **Pre-LayerNorm Architecture (Pre-LN)**:
   $$x_1 = x + \text{Dropout}(\text{Attention}(\text{LayerNorm}_1(x)))$$
   $$x_2 = x_1 + \text{Dropout}(\text{FFN}(\text{LayerNorm}_2(x_1)))$$
-  - Modern architecture used by ESM-2, AlphaFold, and GPT.
-  - Leaves the identity residual stream clean, preventing vanishing/exploding gradients and keeping output activations stable ($\mu \approx 0.0, \sigma \approx 1.0$) across deep 30+ layer networks.
+  - Standard in modern foundation models (ESM-2, AlphaFold, GPT).
+  - Preserves identity gradient flow through the residual highway, stabilizing activations ($\mu \approx 0.0, \sigma \approx 1.0$) across deep architectures.
 
 ---
 
-### ⏳ Milestone 4: ESM-2 Model Architecture & Masked Language Modeling (MLM)
+### Milestone 4: ESM-2 Model & Masked Language Modeling (MLM)
 *File: `04_esm_model.py` (In Progress)*
 
 - Stacking $N$ Pre-LN Transformer blocks into a deep encoder.
@@ -84,16 +77,16 @@ Polypeptide Sequence ("ACDEF...")
 
 ---
 
-### ⏳ Milestone 5: Contact Map Extraction & Zero-Shot Variant Effect Prediction
+### Milestone 5: Contact Map Extraction & Zero-Shot Variant Effect Prediction
 - Extracting pairwise attention maps to predict 3D $\text{C}_\beta - \text{C}_\beta$ contact maps (< 8 Å).
 - Zero-shot scoring of pathogenic vs. benign missense mutations using sequence log-odds:
   $$\Delta \text{score} = \log P(\text{mutant}) - \log P(\text{wildtype})$$
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
-### Prerequisites
+### Requirements
 - Python 3.10+
 - PyTorch 2.0+
 
@@ -105,29 +98,30 @@ pip install torch
 
 ### Running the Milestones
 
-**Test Milestone 1 (Tokenizer & Embeddings):**
+**Milestone 1 (Tokenizer & Embeddings):**
 ```bash
 python 01_tokenizer_and_embedding.py
 ```
 
-**Test Milestone 2 (Multi-Head Self-Attention):**
+**Milestone 2 (Multi-Head Self-Attention):**
 ```bash
 python 02_self_attention.py
 ```
 
-**Test Milestone 3 (Pre-LN Transformer Block):**
+**Milestone 3 (Pre-LN Transformer Block):**
 ```bash
 python 03_transformer_block.py
 ```
 
 ---
 
-## 🔬 Directory Structure
+## Repository Structure
 
 ```
 bio-ml-from-scratch/
+├── LICENSE                       # MIT License
+├── README.md                     # Project documentation and roadmap
 ├── .gitignore                    # Python & IDE exclusion rules
-├── README.md                     # Architecture documentation and roadmap
 ├── 01_tokenizer_and_embedding.py # Milestone 1: Tokenizer & learnable embeddings
 ├── 02_self_attention.py          # Milestone 2: Scaled Dot-Product & Multi-Head Attention
 └── 03_transformer_block.py       # Milestone 3: Pre-LN ESM-2 Transformer Encoder Block
@@ -135,14 +129,13 @@ bio-ml-from-scratch/
 
 ---
 
-## 👨‍💻 Author
+## Author
 
 **Ashish**  
-- GitHub: [@ashishblazee](https://github.com/ashishblazee)  
-- Focus: Computational Biology, Deep Learning for Protein Design & Structure Prediction.
+GitHub: [@ashishblazee](https://github.com/ashishblazee)
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
